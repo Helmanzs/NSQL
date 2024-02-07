@@ -1,0 +1,26 @@
+<div class="w-screen max-w-lg mx-auto bg-white rounded-lg shadow-md p-6">
+    <form action="/vote" method="post">
+        <input type="hidden" name="idx" value="{{ index.value }}">
+        <h1 class="text-3xl font-bold mb-4">{{ poll.question }}</h1>
+        <hr class="my-2">
+        <div class="flex flex-col">
+            {% set idx = namespace(value=0) %}
+            {% for option in poll.options %}
+            <label
+                class="inline-flex items-center bg-white hover:bg-gray-200 text-gray-700 hover:text-gray-900 focus:outline-none focus:text-gray-900 py-2 px-4 rounded-lg mb-2 cursor-pointer">
+                <input type="radio" name="options" value="{{ idx.value }}" class="mr-2 cursor-pointer">
+                {{ option }}
+            </label>
+            {% set idx.value = idx.value + 1 %}
+            {% endfor %}
+        </div>
+        <hr class="my-2">
+        <div class="flex justify-center">
+            <button type="submit"
+                class="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-8 rounded-lg">Vote!</button>
+        </div>
+        <div class="flex justify-end">
+            <p class="mt-4 text-sm text-gray-500">by: {{ poll.user }}</p>
+        </div>
+    </form>
+</div>

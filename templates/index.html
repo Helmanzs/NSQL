@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+{% include 'head.html' %}
+
+<body class="bg-gray-100 relative h-screen">
+    <div class="">
+        {% include 'navbar.html' %}
+        {% if polls %}
+        <div class="my-10 mx-auto flex flex-wrap gap-1">
+            {% set index = namespace(value=0) %}
+            {% for poll in polls %}
+            <div class="max-w-xl mx-auto bg-white rounded-lg shadow-md p-6 mb-4">
+                {% include 'poll.html' %}
+                {% set index.value = index.value + 1 %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="flex justify-center items-center absolute top-1/2 left-1/2 mr-48" style="margin-left:-120px">
+            <p class="text-3xl text-gray-700">Wow, such empty.</p>
+        </div>
+        {% endif %}
+
+        <form action="create_poll" method="GET">
+            <button type="submit"
+                class="fixed bottom-8 right-8 bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg">
+                Create Poll
+            </button>
+        </form>
+
+    </div>
+</body>
+
+</html>

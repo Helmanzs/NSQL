@@ -1,0 +1,19 @@
+<nav
+    class="font-sans flex flex-col text-center sm:flex-row sm:text-left sm:justify-between py-4 px-6 bg-white shadow sm:items-baseline w-full">
+    <div class="mb-2 sm:mb-0">
+        <a href="/" class="text-2xl no-underline text-grey-darkest hover:text-blue-dark">Polling system</a>
+    </div>
+    <div>
+        {% if 'User' in session %}
+        <span class="text-lg text-grey-darkest ml-2">Welcome, {{ session['User']['username']}}</span>
+        <form action="/logout" method="post" class="inline">
+            <button type="submit"
+                class="text-lg no-underline text-grey-darkest hover:text-blue-dark ml-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-300 ease-in-out">Log
+                out</button>
+        </form>
+        {% else %}
+        <a href="login" class="text-lg no-underline text-grey-darkest hover:text-blue-dark ml-2">Log in</a>
+        <a href="register" class="text-lg no-underline text-grey-darkest hover:text-blue-dark ml-2">Register</a>
+        {% endif %}
+    </div>
+</nav>
