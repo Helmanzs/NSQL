@@ -5,19 +5,40 @@
         <hr class="my-2">
         <div class="flex flex-col">
             {% set idx = namespace(value=0) %}
+            {% set total = namespace(value=0) %}
+
+            {% for vote in poll.votes %}
+            {% set total.value = total.value + vote %}
+            {% endfor %}
             {% for option in poll.options %}
             <label
-                class="inline-flex items-center bg-white hover:bg-gray-200 text-gray-700 hover:text-gray-900 focus:outline-none focus:text-gray-900 py-2 px-4 rounded-lg mb-2 cursor-pointer">
-                <input type="radio" name="options" value="{{ idx.value }}" class="mr-2 cursor-pointer">
+                class="inline-flex {% if poll['disabled'] or poll['own'] %} cursor-not-allowed text-gray-500 {% else %} focus:text-gray-900 hover:bg-gray-200 text-gray-700 hover:text-gray-900 {% endif %} items-center bg-white focus:outline-none py-2 px-4 rounded-lg mb-2 cursor-pointer">
+
+                <input required {% if poll['disabled'] or poll['own'] %} disabled {% endif %} type="radio"
+                    name="options" value="{{ idx.value }}" class="mr-2 cursor-pointer">
                 {{ option }}
+                {% if poll['disabled'] or poll['own'] %}
+                <div class="ml-auto">{{ poll['votes'][idx.value] }}</div>
+                {% endif %}
+
             </label>
             {% set idx.value = idx.value + 1 %}
             {% endfor %}
+
+            {% if poll['disabled'] or poll['own'] %}
+            <div class="ml-auto text-xs text-gray-400">Total votes: {{ total.value }}</div>
+            {% endif %}
+
+
+
         </div>
         <hr class="my-2">
         <div class="flex justify-center">
-            <button type="submit"
-                class="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-8 rounded-lg">Vote!</button>
+            <button {% if poll['disabled'] or poll['own'] %} disabled {% endif %} type="submit"
+                class="mt-4 {% if poll['disabled'] or poll['own'] %} bg-gray-300 cursor-not-allowed {% else %} bg-blue-500 hover:bg-blue-700 {% endif %} text-white font-bold py-2 px-8 rounded-lg">
+                {% if poll['disabled'] %} Already voted! {% elif poll['own'] %} Your post {% else %} Vote! {% endif %}
+            </button>
+
         </div>
         <div class="flex justify-end">
             <p class="mt-4 text-sm text-gray-500">by: {{ poll.user }}</p>

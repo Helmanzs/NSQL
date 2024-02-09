@@ -2,34 +2,48 @@ from flask import Flask, jsonify, render_template, request, url_for, redirect, s
 from pymongo import MongoClient, errors
 from user import User
 from poll import Poll
-from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = "kek"
 client = MongoClient('mongodb://admin:admin@mongo:27017')
 db = client.get_database('NSQL')
 polls = [
-    {
-        "question": "What is your favorite color?",
-        "options": ["Red", "Blue", "Green"],
-        "votes": [0, 0, 0],
-        "user": "admin",
-        "users": ["user456"]
-    },
-    {
-        "question": "Which programming language do you prefer?",
-        "options": ["Python", "Java", "JavaScript"],
-        "votes": [0, 0, 0],
-        "user": "admin2",
-        "users": ["user101", "user202"]
-    },
-    # Additional documents...
+  {
+    "question": "Favorite Color Poll",
+    "options": ["Red", "Blue", "Green"],
+    "votes": [3, 0, 4],
+    "user": "admin",
+    "users": []
+  },
+  {
+    "question": "Weekend Activity Poll",
+    "options": ["Hiking", "Reading", "Watching Movies"],
+    "votes": [1, 2, 3],
+    "user": "user2",
+    "users": []
+  },
+  {
+    "question": "Programming Language Poll",
+    "options": ["Python", "Java", "JavaScript", "C++"],
+    "votes": [1, 0, 0, 0],
+    "user": "user3",
+    "users": ['admin']
+  }
 ]
+
 
 @app.route('/')
 def index():
-    #polls = list(db.polls.find({}, {"_id": 0}))
-    
+    #polls = list(db.polls.find({}))
+    if(len(polls) > 0):
+        for poll in polls:
+            if session['User']['username'] in poll['users']:
+                poll['disabled'] = True
+            elif session['User']['username'] == poll['user']:
+                poll['own'] = True
+            else:
+                poll['disabled'] = False
+                poll['own'] = False
     return render_template('index.html', polls=polls)
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -61,12 +75,16 @@ def login():
 def vote():
     user = session['User']['username']
     index = int(request.form['idx'])
-    option = int(request.form['options'])
     poll = polls[index]
+    option = int(request.form['options'])
     votes = poll['votes']
     if user != poll['user']:
         votes[option] += 1
-    print(votes)
+        poll['users'].append(user)
+        result = db.polls.update_one(
+            {'_id': poll["_id"]},
+            {'$set': {'votes': votes}, '$addToSet': {'users': user}},
+        )
     return redirect(url_for('index'))
 
 @app.route('/logout', methods=['POST'])
@@ -83,12 +101,9 @@ def create_poll():
 
 @app.route('/submit_poll', methods=['POST'])
 def submit_poll():
-   # Get form data
-    question = request.form['question']
-    options = request.form.getlist('option[]')
     user = User.from_json(session['User'])
-    poll = Poll(question=question, options=options, user=user)
-    db.polls.insert_one({'user': user.username, 'question': poll.question, 'options': poll.options, 'votes': poll.votes, 'date_added': datetime.now()})
+    poll = Poll(request.form['question'], request.form.getlist('option[]'), user.username)
+    db.polls.insert_one({'user': user.username, 'question': poll.question, 'options': poll.options, 'votes': poll.votes, 'users': poll.users})
     return redirect(url_for('index'))
 
 
@@ -97,6 +112,14 @@ def debug():
     users = list(db.users.find({}, {"_id": 0}))
     return users
 
+@app.route('/delete_all_polls')
+def delete_all_polls():
+    try:
+        result = db.polls.delete_many({})
+        return jsonify({'message': 'Deleted {} polls'.format(result.deleted_count)}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
 if __name__ == '__main__':
     app.run()
 
