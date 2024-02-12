@@ -1,13 +1,12 @@
 from flask import Flask, jsonify, render_template, request, url_for, redirect, session
-from pymongo import MongoClient, errors
-from user import User
-from poll import Poll
+from databaseClient import Database
 
 app = Flask(__name__)
 app.secret_key = "kek"
-client = MongoClient('mongodb://admin:admin@mongo:27017')
-db = client.get_database('NSQL')
-polls = [
+db = Database('mongodb://admin:admin@mongo:27017')
+polls = []
+
+'''polls = [
   {
     "question": "Favorite Color Poll",
     "options": ["Red", "Blue", "Green"],
@@ -29,67 +28,51 @@ polls = [
     "user": "user3",
     "users": ['admin']
   }
-]
+]'''
 
 
 @app.route('/')
 def index():
-    #polls = list(db.polls.find({}))
-    if(len(polls) > 0):
-        for poll in polls:
-            if session['User']['username'] in poll['users']:
-                poll['disabled'] = True
-            elif session['User']['username'] == poll['user']:
-                poll['own'] = True
-            else:
-                poll['disabled'] = False
-                poll['own'] = False
+    polls = db.getPolls()
+    if len(polls) == 0:
+        return render_template('empty.html')
     return render_template('index.html', polls=polls)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        email = request.form['email']
-        if not db.users.find_one({'username': username}):
-            user = User(username, password, email)
-            db.users.insert_one({'username': user.username, 'password': user.password, 'email': user.email})
-            return redirect(url_for('login'))
-    return render_template('register.html')
+        result = db.register(request.form['username'], request.form['password'], request.form['email'])
+        if result == 1:
+            return redirect(url_for('index'))
+        else:
+            return render_template('register.html', failed=True)
+
+    return render_template('register.html', failed=False)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        user_data = db.users.find_one({'username': username})
-
-        if user_data and User.check_password(user_data['password'], password):
-            user = User(username, password, user_data['email'])
-            session['User'] = User.to_json(user)
+        result = db.login(request.form['username'], request.form['password'])
+        if result == 1:
             return redirect(url_for('index'))
-    return render_template('login.html')
+        else:
+            return render_template('login.html', failed=True)
+        
+    return render_template('login.html', failed=True)
 
 @app.route('/vote', methods=['POST'])
 def vote():
-    user = session['User']['username']
-    index = int(request.form['idx'])
-    poll = polls[index]
-    option = int(request.form['options'])
-    votes = poll['votes']
-    if user != poll['user']:
-        votes[option] += 1
-        poll['users'].append(user)
-        result = db.polls.update_one(
-            {'_id': poll["_id"]},
-            {'$set': {'votes': votes}, '$addToSet': {'users': user}},
-        )
-    return redirect(url_for('index'))
+    result = db.vote(request.form['idx'], polls, int(request.form['options']))
+    if result == 1:
+        return redirect(url_for('index', vote_failed=False))
+    else:
+        return redirect(url_for('index', vote_failed=True))
+
+    
 
 @app.route('/logout', methods=['POST'])
 def logout():
-    session.clear()
+    db.logout()
     return redirect(url_for('index'))
 
 @app.route('/create_poll', methods=['GET', 'POST'])
@@ -101,9 +84,7 @@ def create_poll():
 
 @app.route('/submit_poll', methods=['POST'])
 def submit_poll():
-    user = User.from_json(session['User'])
-    poll = Poll(request.form['question'], request.form.getlist('option[]'), user.username)
-    db.polls.insert_one({'user': user.username, 'question': poll.question, 'options': poll.options, 'votes': poll.votes, 'users': poll.users})
+    result = db.submit_poll(request.form['question'], request.form.getlist('option[]'))
     return redirect(url_for('index'))
 
 
@@ -122,11 +103,3 @@ def delete_all_polls():
     
 if __name__ == '__main__':
     app.run()
-
-def ping_db():
-    try:
-        client.server_info() 
-        return jsonify({'status': 'success', 'message': 'Database connection successful'})
-    except errors.ServerSelectionTimeoutError as e:
-        return jsonify({'status': 'error', 'message': 'Failed to connect to the database'})
-
