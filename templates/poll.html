@@ -12,9 +12,9 @@
             {% endfor %}
             {% for option in poll.options %}
             <label
-                class="inline-flex {% if poll['disabled'] or poll['own'] %} cursor-not-allowed text-gray-500 {% else %} focus:text-gray-900 hover:bg-gray-200 text-gray-700 hover:text-gray-900 {% endif %} items-center bg-white focus:outline-none py-2 px-4 rounded-lg mb-2 cursor-pointer">
+                class="inline-flex {% if poll['disabled'] or poll['own'] or poll['viewer'] %} cursor-not-allowed text-gray-500 {% else %} focus:text-gray-900 hover:bg-gray-200 text-gray-700 hover:text-gray-900 {% endif %} items-center bg-white focus:outline-none py-2 px-4 rounded-lg mb-2 cursor-pointer">
 
-                <input required {% if poll['disabled'] or poll['own'] %} disabled {% endif %} type="radio"
+                <input required {% if poll['disabled'] or poll['own'] or poll['viewer'] %} disabled {% endif %} type="radio"
                     name="options" value="{{ idx.value }}" class="mr-2 cursor-pointer">
                 {{ option }}
                 {% if poll['disabled'] or poll['own'] %}
@@ -34,8 +34,8 @@
         </div>
         <hr class="my-2">
         <div class="flex justify-center">
-            <button {% if poll['disabled'] or poll['own'] %} disabled {% endif %} type="submit"
-                class="mt-4 {% if poll['disabled'] or poll['own'] %} bg-gray-300 cursor-not-allowed {% else %} bg-blue-500 hover:bg-blue-700 {% endif %} text-white font-bold py-2 px-8 rounded-lg">
+            <button {% if poll['disabled'] or poll['own'] or poll['viewer'] %} disabled {% endif %} type="submit"
+                class="mt-4 {% if poll['disabled'] or poll['own'] or poll['viewer'] %} bg-gray-300 cursor-not-allowed {% else %} bg-blue-500 hover:bg-blue-700 {% endif %} text-white font-bold py-2 px-8 rounded-lg">
                 {% if poll['disabled'] %} Already voted! {% elif poll['own'] %} Your post {% else %} Vote! {% endif %}
             </button>
 

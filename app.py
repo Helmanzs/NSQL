@@ -34,14 +34,29 @@ polls = []
 @app.route('/')
 def index():
     polls = db.getPolls()
-    if len(polls) == 0:
+    if polls == 0:
         return render_template('empty.html')
+    
+    if 'User' in session:
+        for poll in polls:
+            if session['User']['username'] in poll['users']:
+                poll['disabled'] = True
+            elif session['User']['username'] == poll['user']:
+                poll['own'] = True
+            else:
+                poll['disabled'] = False
+                poll['own'] = False
+    else:
+        for poll in polls:
+            poll['viewer'] = True
+
     return render_template('index.html', polls=polls)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
         result = db.register(request.form['username'], request.form['password'], request.form['email'])
+        print(result)
         if result == 1:
             return redirect(url_for('index'))
         else:
@@ -62,7 +77,7 @@ def login():
 
 @app.route('/vote', methods=['POST'])
 def vote():
-    result = db.vote(request.form['idx'], polls, int(request.form['options']))
+    result = db.vote(int(request.form['idx']), int(request.form['options']))
     if result == 1:
         return redirect(url_for('index', vote_failed=False))
     else:
@@ -84,7 +99,7 @@ def create_poll():
 
 @app.route('/submit_poll', methods=['POST'])
 def submit_poll():
-    result = db.submit_poll(request.form['question'], request.form.getlist('option[]'))
+    db.submit_poll(request.form['question'], request.form.getlist('option[]'))
     return redirect(url_for('index'))
 
 
@@ -95,11 +110,7 @@ def debug():
 
 @app.route('/delete_all_polls')
 def delete_all_polls():
-    try:
-        result = db.polls.delete_many({})
-        return jsonify({'message': 'Deleted {} polls'.format(result.deleted_count)}), 200
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    return db.delete_polls()
     
 if __name__ == '__main__':
     app.run()

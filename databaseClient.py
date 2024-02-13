@@ -1,32 +1,63 @@
+import redis
 from pymongo import MongoClient, errors
 from flask import session, jsonify
 from user import User
 from poll import Poll
-
+import json
+import time
+from threading import Thread
 
 class Database:
     def __init__(self, url: str):
-        self.client = MongoClient(url)
-        self.db = MongoClient(url).get_database('NSQL')
+        self.mongo_client = MongoClient(url)
+        self.redis_client = redis.StrictRedis(host = 'redis',port = 6379, db = 0)
+        self.db = self.mongo_client.get_database('NSQL')
+        self.update_stable = False
+
+        self.update_thread = Thread(target=self.periodic_mongo_update)
+        self.update_thread.daemon = True
+        self.update_thread.start()
+
+    def periodic_mongo_update(self):
+        while True:
+            time.sleep(60)
+            self.update_mongo_from_redis()
+
+    def update_mongo_from_redis(self):
+        polls = self.getPolls()
+
+        for poll in polls:
+            self.db.polls.update_one(
+                {'_id': poll["_id"]},
+                {'$set': {'votes': poll['votes'], 'users': poll['users']}}
+            )
+        print('Updating')
 
     def getPolls(self):
         polls = []
+
         try:
-            polls = list(self.db.polls.find({}))
-        except:
-            return []
-        
-        for poll in polls:
-            if session['User']['username'] in poll['users']:
-                poll['disabled'] = True
-            elif session['User']['username'] == poll['user']:
-                poll['own'] = True
+            if self.update_stable:
+                polls = list(self.db.polls.find({}))
+                self.update_stable = False
+                for p in polls:
+                        p['_id'] = str(p['_id'])
+                self.redis_client.set('polls', json.dumps(polls))
             else:
-                poll['disabled'] = False
-                poll['own'] = False
+                cached_polls = self.redis_client.get('polls')
+                if cached_polls:
+                    polls = json.loads(cached_polls)
+                else:
+                    polls = list(self.db.polls.find({}))
+                    for p in polls:
+                        p['_id'] = str(p['_id'])
+
+                    self.redis_client.set('polls', json.dumps(polls))
+        except Exception as e:
+            print("Error retrieving polls:", e)
+            raise
         return polls
-       
-    
+
     def register(self, username: str, password: str, email: str):
         try:
             if not self.db.users.find_one({'username': username}):
@@ -52,25 +83,27 @@ class Database:
     def logout(self):
         session.clear()
     
-    def vote(self, index: int, polls: list, option: int):
+    def vote(self, index: int, option: int):
         user = session['User']['username']
+        polls = self.getPolls()
         poll = polls[index]
+
         votes = poll['votes']
-        if user != poll['user']:
-            votes[option] += 1
-            poll['users'].append(user)
-            self.db.polls.update_one(
-                {'_id': poll["_id"]},
-                {'$set': {'votes': votes}, '$addToSet': {'users': user}},
-            )
-            return 1
-        return 0
+        votes[option] += 1
+        poll['users'].append(user)
+
+        for p in polls:
+            p['_id'] = str(p['_id'])
+
+        self.redis_client.set('polls', json.dumps(polls))
+
     
     def submit_poll(self, question: str, options: list): 
         user = User.from_json(session['User'])
         poll = Poll(question, options, user.username)
         try:
             self.db.polls.insert_one({'user': user.username, 'question': poll.question, 'options': poll.options, 'votes': poll.votes, 'users': poll.users})
+            self.update_stable = True
             return 1
         except:
             return 0
@@ -81,3 +114,11 @@ class Database:
             return jsonify({'status': 'success', 'message': 'Database connection successful'})
         except errors.ServerSelectionTimeoutError as e:
             return jsonify({'status': 'error', 'message': 'Failed to connect to the database'})
+        
+    def delete_polls(self):
+        try:
+            result = self.db.polls.delete_many({})
+            self.redis_client.flushdb()
+            return jsonify({'message': 'Deleted {} polls'.format(result.deleted_count)}), 200
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
