@@ -1,18 +1,21 @@
 import redis
 from pymongo import MongoClient, errors
-from flask import session, jsonify
+from flask import session, jsonify, Flask
 from user import User
 from poll import Poll
 import json
 import time
 from threading import Thread
+import sys
+import logging
 
 class Database:
-    def __init__(self, url: str):
+    def __init__(self, url: str, app:Flask):
         self.mongo_client = MongoClient(url)
         self.redis_client = redis.StrictRedis(host = 'redis',port = 6379, db = 0)
         self.db = self.mongo_client.get_database('NSQL')
         self.update_stable = False
+        self.app = app
 
         self.update_thread = Thread(target=self.periodic_mongo_update)
         self.update_thread.daemon = True
@@ -63,7 +66,6 @@ class Database:
             if not self.db.users.find_one({'username': username}):
                 user = User(username, password, email)
                 self.db.users.insert_one({'username': user.username, 'password': user.password, 'email': user.email})
-                session['User'] = User.to_json(user)
                 return 1
             return 0
         except: 
@@ -72,12 +74,18 @@ class Database:
     def login(self, username: str, password: str):
         try:
             user_data = self.db.users.find_one({'username': username})
+            print(jsonify(user_data), flush=True)
+            print(jsonify(user_data), file=sys.stderr)
+            print(jsonify(user_data))
+            self.app.logger.info(user_data)
+            sys.stdout.flush()
             if user_data and User.check_password(user_data['password'], password):
                 user = User(username, password, user_data['email'])
                 session['User'] = User.to_json(user)
                 return 1
             return 0
-        except: 
+        except Exception as e: 
+            print('error: ' + str(e))
             return 0
     
     def logout(self):
@@ -98,11 +106,13 @@ class Database:
         self.redis_client.set('polls', json.dumps(polls))
 
     
-    def submit_poll(self, question: str, options: list): 
-        user = User.from_json(session['User'])
-        poll = Poll(question, options, user.username)
+    def submit_poll(self, question: str, options: list, user: str = ''): 
+        if user == '':
+            user = User.from_json(session['User']['username'])
+        
+        poll = Poll(question, options, user)
         try:
-            self.db.polls.insert_one({'user': user.username, 'question': poll.question, 'options': poll.options, 'votes': poll.votes, 'users': poll.users})
+            self.db.polls.insert_one({'user': user, 'question': poll.question, 'options': poll.options, 'votes': poll.votes, 'users': poll.users})
             self.update_stable = True
             return 1
         except:
@@ -115,10 +125,20 @@ class Database:
         except errors.ServerSelectionTimeoutError as e:
             return jsonify({'status': 'error', 'message': 'Failed to connect to the database'})
         
-    def delete_polls(self):
+    def delete_all(self):
         try:
-            result = self.db.polls.delete_many({})
             self.redis_client.flushdb()
-            return jsonify({'message': 'Deleted {} polls'.format(result.deleted_count)}), 200
+            self.mongo_client.drop_database('NSQL')
+            return jsonify({'status': 'ok'})
         except Exception as e:
             return jsonify({'error': str(e)}), 500
+
+    def get_users(self):
+        users_collection = self.db.get_collection('users')
+        users = users_collection.find()
+        return users
+
+    def get_polls(self):
+        polls_collection = self.db.get_collection('polls')
+        polls = polls_collection.find()
+        return polls

@@ -4,6 +4,11 @@ services:
     build: .
     ports:
       - "5001:5000"
+    environment:
+      - RUN_DB_POPULATION=true
+      - FLASK_ENV=development
+      - DEBUG=true
+    entrypoint: "flask run --host=0.0.0.0 --debug"
   mongo:
     image: mongo:latest
     environment:

@@ -1,35 +1,18 @@
-from flask import Flask, jsonify, render_template, request, url_for, redirect, session
+import os
+from flask import Flask, render_template, request, url_for, redirect, session
 from databaseClient import Database
+from populate_database import populate_db
+import logging
+import sys
 
 app = Flask(__name__)
-app.secret_key = "kek"
-db = Database('mongodb://admin:admin@mongo:27017')
+db = Database('mongodb://admin:admin@mongo:27017', app)
 polls = []
+app.logger.addHandler(logging.StreamHandler(sys.stdout))
+app.logger.setLevel(logging.DEBUG)
 
-'''polls = [
-  {
-    "question": "Favorite Color Poll",
-    "options": ["Red", "Blue", "Green"],
-    "votes": [3, 0, 4],
-    "user": "admin",
-    "users": []
-  },
-  {
-    "question": "Weekend Activity Poll",
-    "options": ["Hiking", "Reading", "Watching Movies"],
-    "votes": [1, 2, 3],
-    "user": "user2",
-    "users": []
-  },
-  {
-    "question": "Programming Language Poll",
-    "options": ["Python", "Java", "JavaScript", "C++"],
-    "votes": [1, 0, 0, 0],
-    "user": "user3",
-    "users": ['admin']
-  }
-]'''
-
+if __name__ == '__main__':
+    app.run(debug=True)
 
 @app.route('/')
 def index():
@@ -56,7 +39,6 @@ def index():
 def register():
     if request.method == 'POST':
         result = db.register(request.form['username'], request.form['password'], request.form['email'])
-        print(result)
         if result == 1:
             return redirect(url_for('index'))
         else:
@@ -66,6 +48,7 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    print(request.method)
     if request.method == 'POST':
         result = db.login(request.form['username'], request.form['password'])
         if result == 1:
@@ -82,8 +65,6 @@ def vote():
         return redirect(url_for('index', vote_failed=False))
     else:
         return redirect(url_for('index', vote_failed=True))
-
-    
 
 @app.route('/logout', methods=['POST'])
 def logout():
@@ -102,15 +83,11 @@ def submit_poll():
     db.submit_poll(request.form['question'], request.form.getlist('option[]'))
     return redirect(url_for('index'))
 
+@app.route('/delete_all')
+def delete_all():
+    return db.delete_all()
 
-@app.route('/debug')
-def debug():
-    users = list(db.users.find({}, {"_id": 0}))
-    return users
-
-@app.route('/delete_all_polls')
-def delete_all_polls():
-    return db.delete_polls()
-    
-if __name__ == '__main__':
-    app.run()
+@app.route('/populate')
+def populate():
+    populate_db(db)
+    return redirect(url_for('index'))
