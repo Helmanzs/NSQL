@@ -1,21 +1,18 @@
 import redis
 from pymongo import MongoClient, errors
-from flask import session, jsonify, Flask
+from flask import session, jsonify
 from user import User
 from poll import Poll
 import json
 import time
 from threading import Thread
-import sys
-import logging
 
 class Database:
-    def __init__(self, url: str, app:Flask):
+    def __init__(self, url: str):
         self.mongo_client = MongoClient(url)
         self.redis_client = redis.StrictRedis(host = 'redis',port = 6379, db = 0)
         self.db = self.mongo_client.get_database('NSQL')
         self.update_stable = False
-        self.app = app
 
         self.update_thread = Thread(target=self.periodic_mongo_update)
         self.update_thread.daemon = True
@@ -74,11 +71,6 @@ class Database:
     def login(self, username: str, password: str):
         try:
             user_data = self.db.users.find_one({'username': username})
-            print(jsonify(user_data), flush=True)
-            print(jsonify(user_data), file=sys.stderr)
-            print(jsonify(user_data))
-            self.app.logger.info(user_data)
-            sys.stdout.flush()
             if user_data and User.check_password(user_data['password'], password):
                 user = User(username, password, user_data['email'])
                 session['User'] = User.to_json(user)

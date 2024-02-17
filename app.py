@@ -1,15 +1,11 @@
-import os
 from flask import Flask, render_template, request, url_for, redirect, session
 from databaseClient import Database
 from populate_database import populate_db
-import logging
-import sys
 
 app = Flask(__name__)
-db = Database('mongodb://admin:admin@mongo:27017', app)
+app.secret_key = "kek"
+db = Database('mongodb://admin:admin@mongo:27017')
 polls = []
-app.logger.addHandler(logging.StreamHandler(sys.stdout))
-app.logger.setLevel(logging.DEBUG)
 
 if __name__ == '__main__':
     app.run(debug=True)
@@ -48,7 +44,6 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    print(request.method)
     if request.method == 'POST':
         result = db.login(request.form['username'], request.form['password'])
         if result == 1:

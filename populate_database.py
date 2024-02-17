@@ -1,5 +1,3 @@
-from poll import Poll
-from user import User
 from databaseClient import Database
 
 users_data = [
@@ -19,14 +17,6 @@ def populate_db(db: Database):
         username, password, email = user_data
         db.register(username, password, email)
     
-    users = db.get_users()
-    for user in users:
-        print(user)
-
     for poll_data in polls_data:
         question, options, username = poll_data
         db.submit_poll(question, options, username)
-
-    polls = db.get_polls()
-    for poll in polls:
-        print(poll)
