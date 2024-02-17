@@ -9,7 +9,7 @@ Při vstupu na stránku `/populate` se do aplikace vloží základní dummy data
 
 ![image](https://github.com/Helmanzs/NSQL/assets/86473760/ca9ed7b3-0195-4c42-a4b3-f4a06452e467)
 
-Přidají se 3 dotazníky a 3 účty.
+Přidají se 3 dotazníky a 3 účty. (aplikace má být použita pouze lokálně, nedochází k žádné kontrole validních emailů ani žádné požadavky na heslo při registraci)
 Uživatelské jméno | Heslo
 --- | ---
 kaja | kaja
